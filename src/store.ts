@@ -37,7 +37,7 @@ export const S = {
     /** Symbol-edit stack; each entry remembers the parent playhead to restore on exit. */
     edit: [] as { symbolId: string; parentFrame: number; parentLayer: string }[],
     filePath: null as string | null, dirty: false,
-    toast: '', exportOpen: false,
+    toast: '', busy: '', exportOpen: false,
     ctxMenu: null as null | { x: number; y: number; items: MenuItem[] },
   },
   rev: 0, docRev: 0,
@@ -51,6 +51,11 @@ export function setUI(p: Partial<typeof S.ui>) { Object.assign(S.ui, p); emit();
 export const redraw = emit;
 let toastTimer = 0;
 export function toast(msg: string) { clearTimeout(toastTimer); setUI({ toast: msg }); toastTimer = window.setTimeout(() => setUI({ toast: '' }), 2600); }
+/** Show the spinner toast with `msg` while `fn` runs. */
+export async function busy<T>(msg: string, fn: () => Promise<T>): Promise<T> {
+  setUI({ busy: msg });
+  try { return await fn(); } finally { setUI({ busy: '' }); }
+}
 
 // ---------- undo ----------
 // Assets (big image dataURLs) are copied shallowly: asset objects are immutable, replaced rather than edited.

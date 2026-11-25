@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { MENUS, run } from '../commands.ts';
 import { Cancelled, exportAnim, type ExportKind } from '../exporter.ts';
 import { S, api, setUI, toast, useApp, type MenuItem } from '../store.ts';
@@ -8,6 +8,18 @@ import { Stage } from './Stage.tsx';
 import { Timeline } from './Timeline.tsx';
 import { ToolOptions } from './ToolOptions.tsx';
 import { Toolbar } from './Toolbar.tsx';
+
+/** Logo diamond turning around a still play triangle (index.html has a copy for the boot splash). */
+function Spinner({ size }: { size: number }) {
+  const g = useId().replace(/\W/g, ''), url = `url(#${g})`;
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true">
+      <defs><linearGradient id={g} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#c4baff" /><stop offset="1" stopColor="#8b7cf6" /></linearGradient></defs>
+      <path className="spin" d="M50 16 L84 50 L50 84 L16 50 Z" fill={url} stroke={url} strokeWidth="6" strokeLinejoin="round" />
+      <path d="M44 38 L62 50 L44 62 Z" fill="#0c0c12" stroke="#0c0c12" strokeWidth="3" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 /** Close on any pointerdown outside `ref`. */
 function useOutside(ref: React.RefObject<HTMLElement | null>, on: boolean, close: () => void) {
@@ -34,7 +46,7 @@ function Menubar() {
   const name = S.ui.filePath?.split(/[\\/]/).pop() ?? 'Untitled';
   return (
     <header className="menubar" ref={ref}>
-      <span className="logo"><i />Anobe</span>
+      <span className="logo"><img src="./logo.svg" alt="" width={18} height={18} />Anobe</span>
       {Object.entries(MENUS).map(([title, items]) => (
         <div key={title} style={{ position: 'relative' }}>
           <button className="menu-btn" aria-haspopup="menu" aria-expanded={open === title}
@@ -106,7 +118,10 @@ function ExportDialog() {
           <input type="checkbox" checked={transparent && kind !== 'mp4'} disabled={kind === 'mp4' || prog !== null} onChange={e => setTransparent(e.target.checked)} />
           Transparent background{kind === 'mp4' ? ' (not in MP4)' : ''}
         </label>
-        {prog !== null && <div className="progress" role="progressbar" aria-valuenow={Math.round(prog * 100)}><div style={{ width: `${prog * 100}%` }} /></div>}
+        {prog !== null && <div className="line">
+          <Spinner size={22} />
+          <div className="progress" style={{ flex: 1 }} role="progressbar" aria-valuenow={Math.round(prog * 100)}><div style={{ width: `${prog * 100}%` }} /></div>
+        </div>}
         <div className="actions">
           <button className="btn ghost" onClick={close}>{prog === null ? 'Close' : 'Cancel'}</button>
           <button className="btn primary" disabled={prog !== null} onClick={go}>{prog === null ? 'Export' : `${Math.round(prog * 100)}%`}</button>
@@ -131,7 +146,7 @@ export function App() {
       </aside>
       <ContextMenu />
       {S.ui.exportOpen && <ExportDialog />}
-      {S.ui.toast && <div className="toast" role="status">{S.ui.toast}</div>}
+      {(S.ui.busy || S.ui.toast) && <div className="toast" role="status">{S.ui.busy && <Spinner size={16} />}{S.ui.busy || S.ui.toast}</div>}
     </div>
   );
 }

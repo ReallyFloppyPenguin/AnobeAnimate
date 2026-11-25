@@ -46,7 +46,7 @@ const OPTIONS: Partial<Record<UI['tool'], () => ReactNode>> = {
   brush: () => <>
     {num('brush', 'Size', 'Brush size', 1, 400)}
     {pct('thinning', 'Thin', 'Thinning % (width change with pressure/speed)', !S.ui.pressure)}
-    {pct('smoothing', 'Smooth', 'Smoothing %')}
+    {pct('smoothing', 'Smoothing', 'Smoothing % (steadies the stroke, like Animate)')}
     {check('pressure', 'Pressure')}
   </>,
   line: () => <>{width()}{hint('Shift: 45° steps')}</>,

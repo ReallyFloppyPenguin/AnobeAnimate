@@ -417,9 +417,17 @@ const penTool: Tool = {
 
 // ---------- pencil + brush ----------
 const free = { pts: [] as number[][], active: false };
+/** Stroke stabiliser: centred moving average over up to ±k points; the window shrinks at the ends so they stay put. */
+const average = (pts: number[][], k: number) => pts.map((p, i) => {
+  const r = Math.min(k, i, pts.length - 1 - i);
+  let x = 0, y = 0;
+  for (let j = i - r; j <= i + r; j++) { x += pts[j][0]; y += pts[j][1]; }
+  return [x / (2 * r + 1), y / (2 * r + 1), p[2]];
+});
 const brushOutline = (last: boolean) => {
   const { brush, thinning, smoothing, pressure } = S.ui;
-  return getStroke(pressure ? free.pts : free.pts.map(([x, y]) => [x, y, 0.5]), {
+  const pts = average(free.pts, Math.round(smoothing * 10));
+  return getStroke(pressure ? pts : pts.map(([x, y]) => [x, y, 0.5]), {
     size: brush, thinning: pressure ? thinning : 0, smoothing, streamline: 0.2 + smoothing * 0.5,
     simulatePressure: pressure && !free.pts.some(p => p[2] !== 0.5), last,
   });
@@ -435,7 +443,7 @@ const freeTool = (brush: boolean): Tool => ({
     free.active = false;
     if (brush) {
       const outline = brushOutline(true).map(([x, y]) => ({ x, y }));
-      if (outline.length > 2) commitShape(smoothPath(rdp(outline, 0.35 / S.ui.zoom), true, 0.6), S.ui.fill ?? S.ui.stroke, null, 0);
+      if (outline.length > 2) commitShape(smoothPath(rdp(outline, (0.35 + S.ui.smoothing) / S.ui.zoom), true, 0.6), S.ui.fill ?? S.ui.stroke, null, 0);
     } else {
       const pts = rdp(free.pts.map(([x, y]) => ({ x, y })), (0.2 + S.ui.smoothing * 4) / S.ui.zoom);
       if (pts.length >= 2 && (pts.length > 2 || dist(pts[0], pts[1]) > 0)) commitShape(smoothPath(pts, false), null, S.ui.stroke ?? S.ui.fill, S.ui.sw);

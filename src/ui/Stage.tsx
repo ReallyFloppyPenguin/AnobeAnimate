@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronRight, Clapperboard, Box, Maximize, ZoomIn, ZoomOut } from 'lucide-react';
 import { drawTimeline } from '../render.ts';
 import { ident, uid } from '../core/model.ts';
-import { S, curTl, setUI, stopPlay, type MenuItem } from '../store.ts';
+import { S, busy, curTl, setUI, stopPlay, type MenuItem } from '../store.ts';
 import { DEFAULT_CURSOR, TOOLS, baseM, exitSymbol, handTool, hitTop, viewM, zoomAt, type PEvt } from '../tools.ts';
 import { addImage, fitView, keyOf, placeEl, run, symbolInstance } from '../commands.ts';
 
@@ -146,10 +146,13 @@ export function Stage() {
       else { const a = S.doc.assets[id]; if (a) placeEl({ id: uid(), kind: 'bitmap', assetId: id, alpha: 1, tf: { ...ident(), px: a.w / 2, py: a.h / 2 } }, at); }
       return;
     }
-    for (const f of Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))) {
-      const url = await new Promise<string>(res => { const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(f); });
-      await addImage(f.name, url, at);
-    }
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    if (files.length) await busy('Importing…', async () => {
+      for (const f of files) {
+        const url = await new Promise<string>(res => { const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(f); });
+        await addImage(f.name, url, at);
+      }
+    });
   };
 
   const crumbs = [{ name: 'Scene 1', icon: Clapperboard }, ...S.ui.edit.map(e => ({ name: S.doc.symbols[e.symbolId]?.name ?? '?', icon: Box }))];

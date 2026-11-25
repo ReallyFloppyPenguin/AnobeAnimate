@@ -3,7 +3,7 @@ import { clearKeyframe, cloneEls, ident, insertFrame, insertKeyframe, kfIndexAt,
 import { unionRect, type Rect } from './core/geom.ts';
 import { parentBounds } from './render.ts';
 import {
-  S, api, curLayer, curLen, curTl, drawLayer, editSel, kfForEdit, loadDoc, markSaved, mutate, redo, setUI, shownSel,
+  S, api, busy, curLayer, curLen, curTl, drawLayer, editSel, kfForEdit, loadDoc, markSaved, mutate, redo, setUI, shownSel,
   stopPlay, toast, togglePlay, undo, type MenuItem, type ToolId,
 } from './store.ts';
 import { deleteSubNode, exitSymbol, penFinish, penPending, setTool, zoomAt } from './tools.ts';
@@ -49,7 +49,8 @@ export async function addImage(name: string, src: string, at?: { x: number; y: n
 }
 async function importImages() {
   if (!api) return toast('Importing needs the desktop app — or drop an image on the stage');
-  for (const f of await api.openImages()) await addImage(f.name, f.dataUrl);
+  const files = await api.openImages();
+  if (files.length) await busy('Importing…', async () => { for (const f of files) await addImage(f.name, f.dataUrl); });
 }
 /** Put a new element on the current layer at `at` (edit space). */
 export function placeEl(el: El, at?: { x: number; y: number }) {

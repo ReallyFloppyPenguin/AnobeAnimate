@@ -10,7 +10,7 @@ let dirty = false;
 function createWindow() {
   win = new BrowserWindow({
     width: 1600, height: 1000, minWidth: 960, minHeight: 600,
-    backgroundColor: '#09090b', title: 'AnobeAnimate', show: false,
+    backgroundColor: '#09090b', title: 'AnobeAnimate', show: false, icon: path.join(__dirname, 'icon.png'),
     titleBarStyle: 'hidden',
     titleBarOverlay: { color: '#00000000', symbolColor: '#e4e4e7', height: 36 },
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false },
