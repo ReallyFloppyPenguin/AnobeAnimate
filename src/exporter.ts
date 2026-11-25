@@ -11,7 +11,7 @@ export class Cancelled extends Error {}
 
 const tick = () => new Promise(r => setTimeout(r)); // let the progress bar paint
 /** Browser builds have no file system: hand the file to the browser as a download. */
-function download(blob: Blob, name: string) {
+export function download(blob: Blob, name: string) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 10_000);

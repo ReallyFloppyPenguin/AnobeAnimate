@@ -1,6 +1,9 @@
 // Canvas rendering, hit testing and bounds. Shared by the stage, library thumbnails and export.
-import { frameEls, instFrame, tlLen, type Doc, type El, type Timeline, type Transform } from './core/model.ts';
+import { LINE_H, fontCss, frameEls, instFrame, tlLen, type Doc, type El, type Timeline, type Transform } from './core/model.ts';
 import { pathBounds, tracePath, unionRect, type Rect } from './core/geom.ts';
+
+/** Element not drawn on stage (the text being edited, shown by its textarea instead). */
+export const hidden = { id: '' };
 
 export type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -37,7 +40,7 @@ export function drawTimeline(ctx: Ctx, doc: Doc, tl: Timeline, frame: number, de
 }
 
 export function drawEl(ctx: Ctx, doc: Doc, el: El, age: number, depth = 0) {
-  if (el.alpha <= 0) return;
+  if (el.alpha <= 0 || el.id === hidden.id) return;
   ctx.save();
   const m = tfMatrix(el.tf);
   ctx.transform(m.a, m.b, m.c, m.d, m.e, m.f);
@@ -49,6 +52,9 @@ export function drawEl(ctx: Ctx, doc: Doc, el: El, age: number, depth = 0) {
   } else if (el.kind === 'symbol') {
     const sym = doc.symbols[el.symbolId];
     if (sym) drawTimeline(ctx, doc, sym.tl, instFrame(el, age, tlLen(sym.tl)), depth + 1);
+  } else if (el.kind === 'text') {
+    ctx.font = fontCss(el); ctx.fillStyle = el.fill; ctx.textBaseline = 'middle';
+    el.text.split('\n').forEach((l, i) => ctx.fillText(l, 0, (i + 0.5) * el.size * LINE_H));
   } else {
     const a = doc.assets[el.assetId], img = image(doc, el.assetId);
     if (a && img) ctx.drawImage(img, 0, 0, a.w, a.h);
@@ -74,6 +80,11 @@ export function localBounds(doc: Doc, el: El, age: number, depth = 0): Rect | nu
     return { x: b.x - pad, y: b.y - pad, w: b.w + 2 * pad, h: b.h + 2 * pad };
   }
   if (el.kind === 'bitmap') { const a = doc.assets[el.assetId]; return a ? { x: 0, y: 0, w: a.w, h: a.h } : null; }
+  if (el.kind === 'text') {
+    hitCtx.font = fontCss(el);
+    const ls = el.text.split('\n');
+    return { x: 0, y: 0, w: Math.max(...ls.map(l => hitCtx.measureText(l).width)), h: ls.length * el.size * LINE_H };
+  }
   const sym = doc.symbols[el.symbolId];
   if (!sym || depth > MAX_DEPTH) return null;
   return timelineBounds(doc, sym.tl, instFrame(el, age, tlLen(sym.tl)), depth + 1);
@@ -111,11 +122,9 @@ export function hitEl(doc: Doc, el: El, age: number, p: { x: number; y: number }
     hitCtx.lineWidth = (el.stroke ? el.sw : 0) + (2 * tol) / scale;
     return hitCtx.isPointInStroke(path, p.x, p.y);
   }
-  if (el.kind === 'bitmap') {
-    const a = doc.assets[el.assetId];
-    if (!a) return false;
-    const q = m.inverse().transformPoint(p);
-    return q.x >= 0 && q.y >= 0 && q.x <= a.w && q.y <= a.h;
+  if (el.kind === 'bitmap' || el.kind === 'text') {
+    const r = localBounds(doc, el, age), q = m.inverse().transformPoint(p);
+    return !!r && q.x >= r.x && q.y >= r.y && q.x <= r.x + r.w && q.y <= r.y + r.h;
   }
   const sym = doc.symbols[el.symbolId];
   if (!sym) return false;

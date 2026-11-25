@@ -1,6 +1,6 @@
 // Stage tools. Points arrive in "edit space" (the coordinate space of the timeline being edited).
 import { getStroke } from 'perfect-freehand';
-import { frameEls, ident, uid, type BNode, type El, type Layer, type Path, type Pt, type ShapeEl, type SymbolEl, type Transform } from './core/model.ts';
+import { frameEls, ident, uid, type BNode, type El, type Layer, type Path, type Pt, type ShapeEl, type SymbolEl, type TextEl, type Transform } from './core/model.ts';
 import { ellipsePath, linePath, node, rdp, recenter, rectPath, rectsHit, smoothPath, tracePath, unionRect, type Rect } from './core/geom.ts';
 import { corners, hitEl, localBounds, parentBounds, tfMatrix } from './render.ts';
 import { S, curTl, drawLayer, editSel, kfForEdit, mutate, redraw, setUI, shownSel, toast, type ToolId } from './store.ts';
@@ -115,6 +115,7 @@ const selectTool: Tool = {
     const hit = hitTop(e.p);
     if (e.dbl) {
       if (hit?.el.kind === 'symbol') enterSymbol(hit.el);
+      else if (hit?.el.kind === 'text') editText(hit);
       else if (!hit && S.ui.edit.length) exitSymbol();
       return;
     }
@@ -548,12 +549,43 @@ export const handTool: Tool = {
   move(e, pressed) { if (pressed) setUI({ panX: hand.px + e.sx - hand.sx, panY: hand.py + e.sy - hand.sy }); },
   cursor: () => 'grab',
 };
+// ---------- text ----------
+const editText = (h: Hit) => setUI({ sel: [h.el.id], layerId: h.layer.id, textEdit: { id: h.el.id, x: 0, y: 0 } });
+const textTool: Tool = {
+  down(e) {
+    const hit = hitTop(e.p, el => el.kind === 'text');
+    if (hit) editText(hit);
+    else if (drawLayer()) setUI({ sel: [], textEdit: { id: null, x: e.p.x, y: e.p.y } });
+  },
+  cursor: () => 'text',
+};
+/** Close the text editor, writing `text` back (empty text deletes the element / places nothing). */
+export function commitText(text: string) {
+  const te = S.ui.textEdit;
+  if (!te) return;
+  setUI({ textEdit: null });
+  const empty = !text.trim();
+  if (te.id) {
+    const cur = shownSel().find(s => s.el.id === te.id)?.el;
+    if (cur?.kind !== 'text' || cur.text === text) return;
+    mutate(() => {
+      for (const { kf, el } of editSel()) if (el.id === te.id && el.kind === 'text') { if (empty) kf.els = kf.els.filter(x => x !== el); else el.text = text; }
+    });
+  } else if (!empty) {
+    const layer = drawLayer();
+    if (!layer) return;
+    const el: TextEl = { id: uid(), kind: 'text', tf: ident(te.x, te.y), alpha: 1, text, fill: S.ui.fill ?? '#000000ff', ...S.ui.textStyle };
+    mutate(() => kfForEdit(layer).els.push(el));
+    setUI({ sel: [el.id] });
+  }
+}
+
 const zoomTool: Tool = { down(e) { zoomAt(e.sx, e.sy, e.alt ? 0.5 : 2); }, cursor: () => 'zoom-in' };
 
 export const TOOLS: Record<ToolId, Tool> = {
   select: selectTool, transform: transformTool, sub: subTool, pen: penTool, pencil: freeTool(false), brush: freeTool(true),
   line: shapeTool('line'), rect: shapeTool('rect'), oval: shapeTool('oval'),
-  bucket: bucketTool, dropper: dropperTool, eraser: eraserTool, hand: handTool, zoom: zoomTool,
+  bucket: bucketTool, dropper: dropperTool, eraser: eraserTool, hand: handTool, zoom: zoomTool, text: textTool,
 };
 export const DEFAULT_CURSOR: Partial<Record<ToolId, string>> = {
   pen: 'crosshair', pencil: 'crosshair', brush: 'crosshair', line: 'crosshair', rect: 'crosshair', oval: 'crosshair', bucket: 'cell', dropper: 'copy',

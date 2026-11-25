@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronRight, Clapperboard, Box, Maximize, ZoomIn, ZoomOut } from 'lucide-react';
-import { drawTimeline } from '../render.ts';
-import { ident, uid } from '../core/model.ts';
-import { S, busy, curTl, setUI, stopPlay, type MenuItem } from '../store.ts';
-import { DEFAULT_CURSOR, TOOLS, baseM, exitSymbol, handTool, hitTop, viewM, zoomAt, type PEvt } from '../tools.ts';
+import { drawTimeline, hidden, tfMatrix } from '../render.ts';
+import { LINE_H, fontCss, ident, uid } from '../core/model.ts';
+import { S, busy, curTl, setUI, shownSel, stopPlay, type MenuItem } from '../store.ts';
+import { DEFAULT_CURSOR, TOOLS, baseM, commitText, exitSymbol, handTool, hitTop, viewM, zoomAt, type PEvt } from '../tools.ts';
 import { addImage, fitView, keyOf, placeEl, run, symbolInstance } from '../commands.ts';
 
 const item = (label: string, cmd: string): MenuItem => ({ label, cmd, key: keyOf(cmd) });
@@ -66,6 +66,21 @@ function paint(c: HTMLCanvasElement) {
   if (!S.ui.playing) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); TOOLS[S.ui.tool].overlay?.(ctx); }
 }
 
+/** Textarea laid over the stage for typing; the element itself is hidden while it is open. */
+function TextEditor() {
+  const te = S.ui.textEdit!, cur = te.id ? shownSel().find(s => s.el.id === te.id)?.el : undefined;
+  const el = cur?.kind === 'text' ? cur : { ...S.ui.textStyle, fill: S.ui.fill ?? '#000000ff', text: '', tf: ident(te.x, te.y) };
+  const [v, setV] = useState(el.text);
+  useLayoutEffect(() => { hidden.id = te.id ?? ''; return () => { hidden.id = ''; }; }, []);
+  const m = viewM().multiply(tfMatrix(el.tf)), at = m.transformPoint({ x: 0, y: 0 }), lines = v.split('\n');
+  return (
+    <textarea className="text-edit" autoFocus spellCheck={false} wrap="off" aria-label="Text" value={v}
+      rows={lines.length} cols={Math.max(2, ...lines.map(l => l.length + 1))}
+      style={{ left: at.x, top: at.y, font: fontCss(el, el.size * Math.hypot(m.a, m.b)), lineHeight: LINE_H, color: el.fill, transform: `rotate(${Math.atan2(m.b, m.a)}rad)` }}
+      onChange={e => setV(e.target.value)} onBlur={() => commitText(v)} onKeyDown={e => { if (e.key === 'Escape') e.currentTarget.blur(); }} />
+  );
+}
+
 export function Stage() {
   const wrap = useRef<HTMLDivElement>(null), cv = useRef<HTMLCanvasElement>(null);
   const [drop, setDrop] = useState(false);
@@ -102,7 +117,10 @@ export function Stage() {
   const down = (e: React.PointerEvent) => {
     if (e.button !== 0 && e.button !== 1) return;
     stopPlay();
+    e.preventDefault(); // no compat mousedown, so focus stays where the tool puts it (text editor)
+    const editing = !!S.ui.textEdit;
     (document.activeElement as HTMLElement | null)?.blur?.();
+    if (editing) return; // this click only closes the text editor
     e.currentTarget.setPointerCapture(e.pointerId);
     const s = g.current, now = performance.now();
     const dbl = e.button === 0 && now - s.lastT < 350 && Math.hypot(e.clientX - s.lastX, e.clientY - s.lastY) < 5;
@@ -167,6 +185,7 @@ export function Stage() {
         onPointerLeave={() => { if (!g.current.pressed) cv.current!.style.cursor = ''; }}
         aria-label="Stage"
       />
+      {S.ui.textEdit && <TextEditor key={S.ui.textEdit.id ?? `${S.ui.textEdit.x},${S.ui.textEdit.y}`} />}
       <div className="hud crumbs glass">
         {crumbs.map((c, i) => (
           <span key={i} style={{ display: 'contents' }}>

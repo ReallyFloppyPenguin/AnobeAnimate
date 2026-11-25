@@ -1,8 +1,8 @@
 // App state: one mutable document + UI state, a revision counter for React, and snapshot undo.
 import { useSyncExternalStore } from 'react';
-import { frameEls, insertKeyframe, kfIndexAt, kfStart, newDoc, tlLen, type Doc, type El, type Keyframe, type Layer, type Timeline } from './core/model.ts';
+import { frameEls, insertKeyframe, kfIndexAt, kfStart, newDoc, tlLen, type Doc, type TextStyle, type El, type Keyframe, type Layer, type Timeline } from './core/model.ts';
 
-export type ToolId = 'select' | 'sub' | 'transform' | 'pen' | 'pencil' | 'brush' | 'line' | 'rect' | 'oval' | 'bucket' | 'dropper' | 'eraser' | 'hand' | 'zoom';
+export type ToolId = 'select' | 'sub' | 'transform' | 'pen' | 'pencil' | 'brush' | 'line' | 'rect' | 'oval' | 'bucket' | 'dropper' | 'eraser' | 'hand' | 'zoom' | 'text';
 export type MenuItem = { label: string; cmd?: string; key?: string; sep?: boolean; disabled?: boolean };
 
 /** Electron preload bridge (absent when the renderer runs in a plain browser). */
@@ -34,9 +34,14 @@ export const S = {
     fill: '#8b7cf6ff' as string | null, stroke: '#18181bff' as string | null, sw: 2, brush: 14,
     // tool options (shown in the options bar)
     thinning: 0.6, smoothing: 0.5, pressure: true, radius: 0, eraser: 8, snap: true, rotSnap: 15,
+    textStyle: { font: 'Sans', size: 48, bold: false, italic: false } as TextStyle,
+    /** Open text editor: an existing element's id, or null for new text at (x, y) in edit space. */
+    textEdit: null as null | { id: string | null; x: number; y: number },
     /** Symbol-edit stack; each entry remembers the parent playhead to restore on exit. */
     edit: [] as { symbolId: string; parentFrame: number; parentLayer: string }[],
     filePath: null as string | null, dirty: false,
+    /** Browser File System Access handle of the open project (null on desktop or when unsupported). */
+    handle: null as FileSystemFileHandle | null,
     toast: '', busy: '', exportOpen: false, newOpen: false,
     ctxMenu: null as null | { x: number; y: number; items: MenuItem[] },
   },
@@ -87,9 +92,9 @@ function afterDocChange() {
   emit();
 }
 
-export function loadDoc(doc: Doc, path: string | null) {
+export function loadDoc(doc: Doc, path: string | null, handle: FileSystemFileHandle | null = null) {
   S.doc = doc; undoStack.length = redoStack.length = 0;
-  Object.assign(S.ui, { sel: [], frame: 0, edit: [], filePath: path, layerId: doc.tl.layers[0]?.id ?? '', playing: false });
+  Object.assign(S.ui, { sel: [], frame: 0, edit: [], filePath: path, handle, textEdit: null, layerId: doc.tl.layers[0]?.id ?? '', playing: false });
   S.docRev++; S.ui.dirty = false; api?.setDirty(false);
   emit();
 }

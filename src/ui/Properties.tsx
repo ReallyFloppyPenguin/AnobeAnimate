@@ -1,13 +1,13 @@
-import { Ban, Box, Image as ImageIcon, PenLine, Shapes } from 'lucide-react';
+import { Ban, Box, Image as ImageIcon, PenLine, Shapes, Type } from 'lucide-react';
 import { EASES, ease, kfIndexAt, kfStart, type El, type Tween } from '../core/model.ts';
 import { unionRect } from '../core/geom.ts';
 import { parentBounds } from '../render.ts';
 import { S, curLayer, editSel, mutate, shownSel } from '../store.ts';
 import { run } from '../commands.ts';
 import { enterSymbol, isSymbol } from '../tools.ts';
-import { NumField, Swatch, alphaOf, edit, withAlpha } from './controls.tsx';
+import { FontFields, NumField, Swatch, alphaOf, edit, withAlpha } from './controls.tsx';
 
-const KIND = { shape: ['Shape', Shapes], symbol: ['Symbol', Box], bitmap: ['Bitmap', ImageIcon] } as const;
+const KIND = { shape: ['Shape', Shapes], symbol: ['Symbol', Box], bitmap: ['Bitmap', ImageIcon], text: ['Text', Type] } as const;
 /** Edit every selected element (auto-keys tweened frames). */
 const each = (key: string, fn: (el: El) => void) => edit(key, () => editSel().forEach(({ el }) => fn(el)));
 
@@ -66,6 +66,15 @@ function ElementProps() {
           <NumField label="First" title="First frame" digits={0} min={1} value={first.first + 1}
             onChange={v => each('first', el => { if (el.kind === 'symbol') el.first = Math.round(v) - 1; })} />
           {sel.length === 1 && <button className="btn" onClick={() => enterSymbol(first)}><PenLine size={14} />Edit symbol</button>}
+        </div>
+      )}
+      {same && first.kind === 'text' && (
+        <div className="sec">
+          <h3>Text</h3>
+          <div className="line" style={{ flexWrap: 'wrap' }}>
+            <FontFields v={first} set={p => each('font' + Object.keys(p)[0], el => { if (el.kind === 'text') Object.assign(el, p); })} />
+          </div>
+          <ColorRow label="Fill" value={first.fill} set={v => each('tfill', el => { if (el.kind === 'text' && v) el.fill = v; })} />
         </div>
       )}
       {same && first.kind === 'bitmap' && (

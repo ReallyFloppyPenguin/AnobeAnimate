@@ -1,6 +1,6 @@
 // Run: npm test   (Node strips the types natively)
 import assert from 'node:assert/strict';
-import { newLayer, insertFrame, insertKeyframe, clearKeyframe, removeFrame, moveKeyframe, layerLen, kfIndexAt, frameEls, newTween, cubicBezier, matchPaths, ident, instFrame, pairEls, type ShapeEl, type SymbolEl } from './model.ts';
+import { newLayer, insertFrame, insertKeyframe, clearKeyframe, removeFrame, moveKeyframe, layerLen, kfIndexAt, frameEls, newTween, cubicBezier, matchPaths, ident, instFrame, pairEls, lerpEl, fontCss, type ShapeEl, type SymbolEl, type TextEl } from './model.ts';
 import { bezPoint, ellipsePath, rectPath, pathBounds, rdp, smoothPath } from './geom.ts';
 
 const shape = (id: string, x: number): ShapeEl => ({ id, kind: 'shape', tf: ident(x, 0), alpha: 1, path: rectPath(-5, -5, 10, 10), fill: '#ff0000ff', stroke: null, sw: 1 });
@@ -36,4 +36,8 @@ for (let i = 0; i < 4; i++) for (let t = 0; t <= 1; t += 0.05) assert.ok(bezPoin
 const inst = { loop: 'loop', first: 2 } as SymbolEl;
 assert.equal(instFrame(inst, 5, 4), 3); assert.equal(instFrame({ ...inst, loop: 'once' }, 5, 4), 3); assert.equal(instFrame({ ...inst, loop: 'single' }, 5, 4), 2);
 assert.equal(pairEls([shape('x', 0)], [shape('y', 0)])[0]?.id, 'y', 'unmatched shapes pair by order (shape tween)');
+const txt = (size: number, fill: string): TextEl => ({ id: 't', kind: 'text', tf: ident(), alpha: 1, text: 'hi', font: 'Serif', size, fill, bold: true, italic: false });
+const tm = lerpEl(txt(10, '#000000ff'), txt(30, '#ffffffff'), 0.5, 0) as TextEl;
+assert.equal(tm.size, 20, 'text size tweens'); assert.equal(tm.text, 'hi');
+assert.equal(fontCss(tm), 'bold 20px serif');
 console.log('selftest ok');

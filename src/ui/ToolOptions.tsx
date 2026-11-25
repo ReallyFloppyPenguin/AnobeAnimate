@@ -1,7 +1,7 @@
 // Context options bar above the stage: settings for the active tool.
 import type { ReactNode } from 'react';
 import { S, setUI } from '../store.ts';
-import { NumField } from './controls.tsx';
+import { FontFields, NumField } from './controls.tsx';
 import { TOOL_LIST } from './Toolbar.tsx';
 
 type UI = typeof S.ui;
@@ -52,6 +52,10 @@ const OPTIONS: Partial<Record<UI['tool'], () => ReactNode>> = {
   line: () => <>{width()}{hint('Shift: 45° steps')}</>,
   rect: () => <>{width()}{num('radius', 'Corner', 'Corner radius', 0, 2000)}{paint('fill', 'Fill')}{paint('stroke', 'Stroke')}{hint('Shift: square · Alt: from centre')}</>,
   oval: () => <>{width()}{paint('fill', 'Fill')}{paint('stroke', 'Stroke')}{hint('Shift: circle · Alt: from centre')}</>,
+  text: () => <>
+    <FontFields v={S.ui.textStyle} set={p => setUI({ textStyle: { ...S.ui.textStyle, ...p } })} />
+    {hint('Click to type · click text to edit · colour = fill swatch · Esc or click away: done')}
+  </>,
   bucket: () => hint('Click: fill colour · Shift-click: stroke colour'),
   dropper: () => hint('Click a shape to pick its fill, stroke and width'),
   eraser: () => <>{num('eraser', 'Size', 'Eraser radius (screen px)', 1, 200)}{hint('Erases whole shapes the circle touches')}</>,

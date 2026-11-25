@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  ArrowLeftRight, Ban, Brush, Circle, Eraser, Hand, MousePointer2, PaintBucket, PenTool, Pencil, Pipette, Scaling, Slash, Spline, Square, ZoomIn,
+  ArrowLeftRight, Ban, Brush, Circle, Eraser, Hand, MousePointer2, PaintBucket, PenTool, Pencil, Pipette, Scaling, Slash, Spline, Square, Type, ZoomIn,
 } from 'lucide-react';
 import { S, setUI, type ToolId } from '../store.ts';
 import { setTool } from '../tools.ts';
@@ -9,11 +9,11 @@ import { Swatch } from './controls.tsx';
 export const TOOL_LIST: [ToolId, string, string, typeof Brush][] = [
   ['select', 'Selection', 'V', MousePointer2], ['sub', 'Subselection', 'A', Spline], ['transform', 'Free Transform', 'Q', Scaling],
   ['pen', 'Pen', 'P', PenTool], ['pencil', 'Pencil', 'Y', Pencil], ['brush', 'Brush', 'B', Brush],
-  ['line', 'Line', 'N', Slash], ['rect', 'Rectangle', 'R', Square], ['oval', 'Oval', 'O', Circle],
+  ['line', 'Line', 'N', Slash], ['rect', 'Rectangle', 'R', Square], ['oval', 'Oval', 'O', Circle], ['text', 'Text', 'T', Type],
   ['bucket', 'Paint Bucket (Shift: stroke)', 'K', PaintBucket], ['dropper', 'Eyedropper', 'I', Pipette], ['eraser', 'Eraser', 'E', Eraser],
   ['hand', 'Hand (hold Space)', 'H', Hand], ['zoom', 'Zoom (Alt: out)', 'Z', ZoomIn],
 ];
-const BREAKS = new Set(['transform', 'oval', 'eraser']);
+const BREAKS = new Set(['transform', 'text', 'eraser']);
 
 export function Toolbar() {
   const [active, setActive] = useState<'fill' | 'stroke'>('fill');

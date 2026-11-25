@@ -3,35 +3,15 @@ import { clearKeyframe, cloneEls, ident, insertFrame, insertKeyframe, kfIndexAt,
 import { unionRect, type Rect } from './core/geom.ts';
 import { parentBounds } from './render.ts';
 import {
-  S, api, busy, curLayer, curLen, curTl, drawLayer, editSel, kfForEdit, loadDoc, markSaved, mutate, redo, setUI, shownSel,
+  S, api, busy, curLayer, curLen, curTl, drawLayer, editSel, kfForEdit, loadDoc, mutate, redo, setUI, shownSel,
   stopPlay, toast, togglePlay, undo, type MenuItem, type ToolId,
 } from './store.ts';
 import { deleteSubNode, exitSymbol, penFinish, penPending, setTool, zoomAt } from './tools.ts';
 import { newDoc } from './core/model.ts';
+import { openFile, save } from './files.ts';
 
 // ---------- file ----------
 const confirmDiscard = () => !S.ui.dirty || confirm('Discard unsaved changes?');
-function isDoc(d: unknown): d is Doc {
-  const x = d as Doc;
-  return !!x && x.v === 1 && typeof x.w === 'number' && Array.isArray(x.tl?.layers) && typeof x.symbols === 'object' && typeof x.assets === 'object';
-}
-async function openFile() {
-  if (!api) return toast('Opening files needs the desktop app');
-  if (!confirmDiscard()) return;
-  const r = await api.openProject();
-  if (!r) return;
-  try {
-    const d = JSON.parse(r.text);
-    if (!isDoc(d)) throw new Error('not an AnobeAnimate project');
-    loadDoc(d, r.path); fitView();
-  } catch (e) { toast(`Could not open: ${(e as Error).message}`); }
-}
-async function save(as: boolean) {
-  if (!api) return toast('Saving needs the desktop app');
-  const path = await api.saveProject(as ? null : S.ui.filePath, JSON.stringify(S.doc));
-  if (path) { markSaved(path); toast('Saved'); }
-}
-
 // ---------- images ----------
 const loadSize = (src: string) => new Promise<{ w: number; h: number }>((res, rej) => {
   const i = new Image(); i.onload = () => res({ w: i.naturalWidth, h: i.naturalHeight }); i.onerror = () => rej(new Error('bad image')); i.src = src;
@@ -203,7 +183,8 @@ function zoom100() { const { viewW: vw, viewH: vh } = S.ui; setUI({ zoom: 1, pan
 // ---------- registry ----------
 export const COMMANDS: Record<string, () => void> = {
   new: () => { if (confirmDiscard()) setUI({ newOpen: true }); },
-  open: openFile, save: () => save(false), saveAs: () => save(true),
+  open: async () => { if (confirmDiscard() && await openFile()) fitView(); },
+  save: () => save(), saveAs: () => save(true),
   import: importImages, export: () => { stopPlay(); setUI({ exportOpen: true }); },
   undo, redo, cut: () => { copy(); del(); }, copy, paste: () => paste(false), pasteInPlace: () => paste(true),
   duplicate, delete: del, selectAll, deselect: () => setUI({ sel: [] }),
@@ -223,7 +204,7 @@ export const COMMANDS: Record<string, () => void> = {
   fit: fitView, zoom100, devtools: () => api?.toggleDevTools(),
 };
 
-const TOOL_KEYS: Record<string, ToolId> = { V: 'select', A: 'sub', Q: 'transform', P: 'pen', Y: 'pencil', B: 'brush', N: 'line', R: 'rect', O: 'oval', K: 'bucket', I: 'dropper', E: 'eraser', H: 'hand', Z: 'zoom' };
+const TOOL_KEYS: Record<string, ToolId> = { V: 'select', A: 'sub', Q: 'transform', P: 'pen', Y: 'pencil', B: 'brush', N: 'line', R: 'rect', O: 'oval', K: 'bucket', I: 'dropper', E: 'eraser', H: 'hand', Z: 'zoom', T: 'text' };
 const KEYS: Record<string, string> = {
   'Ctrl+N': 'new', 'Ctrl+O': 'open', 'Ctrl+S': 'save', 'Ctrl+Shift+S': 'saveAs', 'Ctrl+R': 'import', 'Ctrl+Shift+E': 'export',
   'Ctrl+Z': 'undo', 'Ctrl+Shift+Z': 'redo', 'Ctrl+Y': 'redo', 'Ctrl+X': 'cut', 'Ctrl+C': 'copy', 'Ctrl+V': 'paste', 'Ctrl+Shift+V': 'pasteInPlace',

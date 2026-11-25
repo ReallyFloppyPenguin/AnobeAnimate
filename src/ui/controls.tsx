@@ -1,7 +1,7 @@
 // Small shared inputs: numeric field with label scrubbing, colour swatch, undo-coalescing edits.
 import { useState, type ReactNode } from 'react';
 import { mutate } from '../store.ts';
-import type { Doc } from '../core/model.ts';
+import { FONTS, type Doc, type TextStyle } from '../core/model.ts';
 
 /** Property edits: repeats of the same key within 800 ms merge into one undo step (scrubs, typing, colour drags). */
 let lastKey = '', lastT = 0;
@@ -68,3 +68,15 @@ export function Swatch(p: { value: string | null; onChange(v: string): void; tit
 
 export const alphaOf = (c: string | null) => (c ? parseInt(c.slice(7, 9) || 'ff', 16) / 255 : 1);
 export const withAlpha = (c: string, a: number) => c.slice(0, 7) + Math.round(Math.min(1, Math.max(0, a)) * 255).toString(16).padStart(2, '0');
+
+/** Font, size, bold, italic: the text tool's options and a selected text element's properties. */
+export function FontFields({ v, set }: { v: TextStyle; set(p: Partial<TextStyle>): void }) {
+  return <>
+    <select className="select" aria-label="Font" value={v.font} onChange={e => set({ font: e.target.value })}>
+      {Object.keys(FONTS).map(f => <option key={f}>{f}</option>)}
+    </select>
+    <NumField label="Size" title="Font size (px)" digits={0} min={1} max={2000} value={v.size} onChange={size => set({ size })} />
+    <label className="check"><input type="checkbox" checked={v.bold} onChange={e => set({ bold: e.target.checked })} />Bold</label>
+    <label className="check"><input type="checkbox" checked={v.italic} onChange={e => set({ italic: e.target.checked })} />Italic</label>
+  </>;
+}

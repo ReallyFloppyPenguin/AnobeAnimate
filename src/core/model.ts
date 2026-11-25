@@ -13,7 +13,19 @@ export type ShapeEl = Base & { kind: 'shape'; path: Path; fill: string | null; s
 export type LoopMode = 'loop' | 'once' | 'single';
 export type SymbolEl = Base & { kind: 'symbol'; symbolId: string; loop: LoopMode; first: number };
 export type BitmapEl = Base & { kind: 'bitmap'; assetId: string };
-export type El = ShapeEl | SymbolEl | BitmapEl;
+export type TextEl = Base & { kind: 'text'; text: string; font: string; size: number; fill: string; bold: boolean; italic: boolean };
+export type El = ShapeEl | SymbolEl | BitmapEl | TextEl;
+
+/** Built-in fonts: menu name -> CSS font-family. */
+export const FONTS: Record<string, string> = {
+  Sans: 'sans-serif', Serif: 'serif', Mono: 'monospace', Arial: 'Arial, sans-serif', Georgia: 'Georgia, serif',
+  Times: '"Times New Roman", serif', Courier: '"Courier New", monospace', Impact: 'Impact, sans-serif',
+  'Comic Sans': '"Comic Sans MS", cursive', Verdana: 'Verdana, sans-serif',
+};
+export type TextStyle = Pick<TextEl, 'font' | 'size' | 'bold' | 'italic'>;
+export const fontCss = (t: TextStyle, size = t.size) => `${t.italic ? 'italic ' : ''}${t.bold ? 'bold ' : ''}${size}px ${FONTS[t.font] ?? 'sans-serif'}`;
+/** Text line height as a multiple of the font size (canvas and the editing textarea agree on it). */
+export const LINE_H = 1.2;
 
 export type Tween = { ease: string; bez: [number, number, number, number]; spin: number };
 export type Keyframe = { id: string; dur: number; els: El[]; tween?: Tween };
@@ -204,6 +216,7 @@ export function lerpEl(a: El, b: El, t: number, spin: number): El {
     const [pa, pb] = matchPaths(a.path, b.path);
     return { ...(base as ShapeEl), path: lerpPath(pa, pb, t), fill: lerpColor(a.fill, b.fill, t), stroke: lerpColor(a.stroke, b.stroke, t), sw: lerp(a.sw, b.sw, t) };
   }
+  if (a.kind === 'text' && b.kind === 'text') return { ...(base as TextEl), fill: lerpColor(a.fill, b.fill, t) ?? a.fill, size: lerp(a.size, b.size, t) };
   return base as El;
 }
 
