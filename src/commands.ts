@@ -1,5 +1,5 @@
 // Every user command (menus + keyboard) lives here, keyed by id.
-import { clearKeyframe, cloneEls, ident, insertFrame, insertKeyframe, kfIndexAt, newLayer, newTween, removeFrame, uid, type Doc, type El, type SymbolEl } from './core/model.ts';
+import { clearKeyframe, cloneEls, ident, insertFrame, insertKeyframe, kfIndexAt, kfStart, layerLen, newLayer, newTween, removeFrame, uid, type Doc, type El, type Layer, type SymbolEl } from './core/model.ts';
 import { unionRect, type Rect } from './core/geom.ts';
 import { parentBounds } from './render.ts';
 import {
@@ -116,12 +116,26 @@ function arrange(where: 'front' | 'forward' | 'backward' | 'back') {
 function flip(axis: 'sx' | 'sy') { mutate(() => { for (const { el } of editSel()) el.tf[axis] *= -1; }); }
 
 // ---------- timeline ----------
-function layerOp(fn: (l: NonNullable<ReturnType<typeof curLayer>>) => void) {
+/** Edit the current layer; if `fn` returns a frame number the playhead moves there. */
+function layerOp(fn: (l: NonNullable<ReturnType<typeof curLayer>>) => number | void) {
   const l = curLayer();
   if (!l) return;
   if (l.locked) return toast(`"${l.name}" is locked`);
-  mutate(() => fn(l));
+  stopPlay();
+  mutate(() => { const to = fn(l); if (to !== undefined) S.ui.frame = to; });
 }
+/** F5 as in Animate: insert a frame after the playhead and step onto it (past the end: extend to the playhead). */
+function addFrame(l: Layer) {
+  const f = S.ui.frame, inside = f < layerLen(l);
+  insertFrame(l, f);
+  return inside ? f + 1 : f;
+}
+/** F6/F7 as in Animate: on an existing keyframe the new one goes on the next frame and the playhead follows. */
+const addKey = (blank: boolean) => layerOp(l => {
+  const f = S.ui.frame, i = kfIndexAt(l, f), to = i >= 0 && kfStart(l, i) === f ? f + 1 : f;
+  insertKeyframe(l, to, blank);
+  return to;
+});
 function createTween() {
   const l = curLayer(), i = l ? kfIndexAt(l, S.ui.frame) : -1;
   if (!l || i < 0) return toast('No keyframe span at the playhead');
@@ -195,10 +209,10 @@ export const COMMANDS: Record<string, () => void> = {
   play: togglePlay, loop: () => setUI({ loop: !S.ui.loop }), onion: () => setUI({ onion: !S.ui.onion }),
   prevFrame: () => setFrame(S.ui.frame - 1), nextFrame: () => setFrame(S.ui.frame + 1),
   firstFrame: () => setFrame(0), lastFrame: () => setFrame(curLen() - 1),
-  insertFrame: () => layerOp(l => insertFrame(l, S.ui.frame)),
+  insertFrame: () => layerOp(addFrame),
   removeFrame: () => layerOp(l => removeFrame(l, S.ui.frame)),
-  keyframe: () => layerOp(l => insertKeyframe(l, S.ui.frame, false)),
-  blankKeyframe: () => layerOp(l => insertKeyframe(l, S.ui.frame, true)),
+  keyframe: () => addKey(false),
+  blankKeyframe: () => addKey(true),
   clearKeyframe: () => layerOp(l => clearKeyframe(l, S.ui.frame)),
   createTween, removeTween, addLayer, deleteLayer: () => deleteLayer(),
   zoomIn: () => zoomAt(S.ui.viewW / 2, S.ui.viewH / 2, 1.25), zoomOut: () => zoomAt(S.ui.viewW / 2, S.ui.viewH / 2, 0.8),
