@@ -37,15 +37,17 @@ export function rdp(pts: Pt[], eps: number): Pt[] {
   return [...rdp(pts.slice(0, idx + 1), eps).slice(0, -1), ...rdp(pts.slice(idx), eps)];
 }
 
-/** Catmull-Rom through points, expressed as bezier handles. */
+/** Catmull-Rom through points, expressed as bezier handles. Each handle is sized to its own
+ *  segment, so a short segment next to a long one doesn't overshoot into a spike. */
 export function smoothPath(pts: Pt[], closed: boolean, tension = 1): Path {
   const n = pts.length;
   const nodes = pts.map((p, i) => {
     const prev = pts[closed ? (i - 1 + n) % n : Math.max(0, i - 1)];
     const next = pts[closed ? (i + 1) % n : Math.min(n - 1, i + 1)];
-    const tx = ((next.x - prev.x) / 6) * tension, ty = ((next.y - prev.y) / 6) * tension;
+    const dp = Math.hypot(p.x - prev.x, p.y - prev.y), dn = Math.hypot(next.x - p.x, next.y - p.y);
+    const s = tension / 3 / (dp + dn || 1), tx = next.x - prev.x, ty = next.y - prev.y;
     const end = !closed && (i === 0 || i === n - 1);
-    return end ? node(p.x, p.y) : node(p.x, p.y, -tx, -ty, tx, ty);
+    return end ? node(p.x, p.y) : node(p.x, p.y, -tx * dp * s, -ty * dp * s, tx * dn * s, ty * dn * s);
   });
   return { nodes, closed };
 }

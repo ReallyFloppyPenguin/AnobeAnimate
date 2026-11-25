@@ -37,7 +37,7 @@ export const S = {
     /** Symbol-edit stack; each entry remembers the parent playhead to restore on exit. */
     edit: [] as { symbolId: string; parentFrame: number; parentLayer: string }[],
     filePath: null as string | null, dirty: false,
-    toast: '', busy: '', exportOpen: false,
+    toast: '', busy: '', exportOpen: false, newOpen: false,
     ctxMenu: null as null | { x: number; y: number; items: MenuItem[] },
   },
   rev: 0, docRev: 0,

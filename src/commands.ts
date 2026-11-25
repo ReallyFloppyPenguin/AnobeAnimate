@@ -189,6 +189,9 @@ export function newSymbol() {
   S.ui.edit.push({ symbolId: id, parentFrame: S.ui.frame, parentLayer: S.ui.layerId });
   setUI({ frame: 0, sel: [], layerId: layer.id });
 }
+export function newFile(w: number, h: number, fps: number) {
+  setUI({ newOpen: false }); loadDoc({ ...newDoc(), w, h, fps }, null); fitView();
+}
 
 // ---------- view ----------
 export function fitView() {
@@ -199,7 +202,7 @@ function zoom100() { const { viewW: vw, viewH: vh } = S.ui; setUI({ zoom: 1, pan
 
 // ---------- registry ----------
 export const COMMANDS: Record<string, () => void> = {
-  new: () => { if (confirmDiscard()) { loadDoc(newDoc(), null); fitView(); } },
+  new: () => { if (confirmDiscard()) setUI({ newOpen: true }); },
   open: openFile, save: () => save(false), saveAs: () => save(true),
   import: importImages, export: () => { stopPlay(); setUI({ exportOpen: true }); },
   undo, redo, cut: () => { copy(); del(); }, copy, paste: () => paste(false), pasteInPlace: () => paste(true),
@@ -251,7 +254,7 @@ let spaceFrom: ToolId | null = null;
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 export function installKeys() {
   window.addEventListener('keydown', e => {
-    if (typing(e.target) || S.ui.exportOpen) return;
+    if (typing(e.target) || S.ui.exportOpen || S.ui.newOpen) return;
     const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
     if (k === ' ') { e.preventDefault(); if (!spaceFrom && !e.repeat) { spaceFrom = S.ui.tool; setUI({ tool: 'hand' }); } return; }
     if (k === 'Escape') { if (penPending()) penFinish(false); else if (S.ui.ctxMenu) setUI({ ctxMenu: null }); else setUI({ sel: [] }); return; }

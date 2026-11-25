@@ -1,7 +1,7 @@
 // Run: npm test   (Node strips the types natively)
 import assert from 'node:assert/strict';
 import { newLayer, insertFrame, insertKeyframe, clearKeyframe, removeFrame, moveKeyframe, layerLen, kfIndexAt, frameEls, newTween, cubicBezier, matchPaths, ident, instFrame, pairEls, type ShapeEl, type SymbolEl } from './model.ts';
-import { ellipsePath, rectPath, pathBounds, rdp } from './geom.ts';
+import { bezPoint, ellipsePath, rectPath, pathBounds, rdp, smoothPath } from './geom.ts';
 
 const shape = (id: string, x: number): ShapeEl => ({ id, kind: 'shape', tf: ident(x, 0), alpha: 1, path: rectPath(-5, -5, 10, 10), fill: '#ff0000ff', stroke: null, sw: 1 });
 
@@ -30,6 +30,9 @@ const [c, d] = matchPaths(rectPath(0, 0, 10, 10), { closed: true, nodes: ellipse
 assert.equal(c.nodes.length, 8); assert.equal(d.nodes.length, 8);
 const bb = pathBounds(ellipsePath(0, 0, 5, 3)); assert.ok(Math.abs(bb.w - 10) < 0.05 && Math.abs(bb.h - 6) < 0.05);
 assert.equal(rdp([{ x: 0, y: 0 }, { x: 1, y: 0.01 }, { x: 2, y: 0 }], 0.1).length, 2);
+// A short segment beside a long one must not overshoot (brush end-cap spikes).
+const sp = smoothPath([{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 101, y: 1 }, { x: 100, y: 2 }, { x: 0, y: 2 }], false);
+for (let i = 0; i < 4; i++) for (let t = 0; t <= 1; t += 0.05) assert.ok(bezPoint(sp.nodes[i], sp.nodes[i + 1], t).x <= 101.01, 'smoothPath overshoot');
 const inst = { loop: 'loop', first: 2 } as SymbolEl;
 assert.equal(instFrame(inst, 5, 4), 3); assert.equal(instFrame({ ...inst, loop: 'once' }, 5, 4), 3); assert.equal(instFrame({ ...inst, loop: 'single' }, 5, 4), 2);
 assert.equal(pairEls([shape('x', 0)], [shape('y', 0)])[0]?.id, 'y', 'unmatched shapes pair by order (shape tween)');

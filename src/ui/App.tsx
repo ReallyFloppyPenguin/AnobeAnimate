@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { MENUS, run } from '../commands.ts';
+import { MENUS, newFile, run } from '../commands.ts';
+import { NumField } from './controls.tsx';
 import { Cancelled, exportAnim, type ExportKind } from '../exporter.ts';
 import { S, api, setUI, toast, useApp, type MenuItem } from '../store.ts';
 import { Library } from './Library.tsx';
@@ -77,6 +78,58 @@ function ContextMenu() {
   );
 }
 
+/** Dialog shell: Escape or a click on the backdrop calls `close`. */
+function Modal({ title, close, children }: { title: string; close(): void; children: React.ReactNode }) {
+  const id = useId();
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  });
+  return (
+    <div className="modal-back" onPointerDown={e => e.target === e.currentTarget && close()}>
+      <div className="modal glass" role="dialog" aria-modal="true" aria-labelledby={id}>
+        <h2 id={id}>{title}</h2>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const PRESETS: [string, number, number][] = [
+  ['HD 1280×720', 1280, 720], ['Full HD 1920×1080', 1920, 1080], ['4K 3840×2160', 3840, 2160],
+  ['Square 1080×1080', 1080, 1080], ['Portrait 1080×1920', 1080, 1920],
+];
+
+function NewDialog() {
+  const [w, setW] = useState(S.doc.w), [h, setH] = useState(S.doc.h), [fps, setFps] = useState(S.doc.fps);
+  const close = () => setUI({ newOpen: false });
+  const preset = PRESETS.find(p => p[1] === w && p[2] === h);
+  return (
+    <Modal title="New animation" close={close}>
+      <div className="line">
+        <span className="lbl">Size</span>
+        <select className="select" aria-label="Size preset" value={preset?.[0] ?? ''} onChange={e => {
+          const p = PRESETS.find(p => p[0] === e.target.value);
+          if (p) { setW(p[1]); setH(p[2]); }
+        }}>
+          {!preset && <option value="">Custom</option>}
+          {PRESETS.map(([n]) => <option key={n}>{n}</option>)}
+        </select>
+      </div>
+      <div className="line">
+        <NumField label="W" title="Width (px)" digits={0} min={1} max={8192} value={w} onChange={v => setW(Math.round(v))} />
+        <NumField label="H" title="Height (px)" digits={0} min={1} max={8192} value={h} onChange={v => setH(Math.round(v))} />
+        <NumField label="FPS" title="Frames per second" digits={0} min={1} max={120} value={fps} onChange={v => setFps(Math.round(v))} />
+      </div>
+      <div className="actions">
+        <button className="btn ghost" onClick={close}>Cancel</button>
+        <button className="btn primary" autoFocus onClick={() => newFile(w, h, fps)}>Create</button>
+      </div>
+    </Modal>
+  );
+}
+
 const KINDS: [ExportKind, string][] = [['gif', 'GIF'], ['png', 'PNG seq'], ['mp4', 'MP4'], ['webm', 'WebM']];
 
 function ExportDialog() {
@@ -86,13 +139,7 @@ function ExportDialog() {
   const [prog, setProg] = useState<number | null>(null);
   const cancel = useRef(false);
   const close = () => { if (prog === null) setUI({ exportOpen: false }); else cancel.current = true; };
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
-    window.addEventListener('keydown', k);
-    return () => window.removeEventListener('keydown', k);
-  });
   const go = async () => {
-    if (!api) return toast('Export needs the desktop app (npm start)');
     cancel.current = false; setProg(0);
     try {
       const path = await exportAnim(S.doc, { kind, scale, transparent: transparent && kind !== 'mp4' }, setProg, () => cancel.current);
@@ -102,11 +149,12 @@ function ExportDialog() {
     } finally { setProg(null); }
   };
   return (
-    <div className="modal-back" onPointerDown={e => e.target === e.currentTarget && close()}>
-      <div className="modal glass" role="dialog" aria-modal="true" aria-labelledby="exp-h">
-        <h2 id="exp-h">Export animation</h2>
+    <Modal title="Export animation" close={close}>
         <div className="seg" role="group" aria-label="Format">
-          {KINDS.map(([k, l]) => <button key={k} aria-pressed={kind === k} disabled={prog !== null} onClick={() => setKind(k)}>{l}</button>)}
+          {KINDS.map(([k, l]) => {
+            const desktopOnly = !api && (k === 'mp4' || k === 'webm');
+            return <button key={k} aria-pressed={kind === k} disabled={prog !== null || desktopOnly} title={desktopOnly ? 'Needs the desktop app' : undefined} onClick={() => setKind(k)}>{l}</button>;
+          })}
         </div>
         <div className="line">
           <span className="lbl">Scale</span>
@@ -126,8 +174,7 @@ function ExportDialog() {
           <button className="btn ghost" onClick={close}>{prog === null ? 'Close' : 'Cancel'}</button>
           <button className="btn primary" disabled={prog !== null} onClick={go}>{prog === null ? 'Export' : `${Math.round(prog * 100)}%`}</button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -146,6 +193,7 @@ export function App() {
       </aside>
       <ContextMenu />
       {S.ui.exportOpen && <ExportDialog />}
+      {S.ui.newOpen && <NewDialog />}
       {(S.ui.busy || S.ui.toast) && <div className="toast" role="status">{S.ui.busy && <Spinner size={16} />}{S.ui.busy || S.ui.toast}</div>}
     </div>
   );
